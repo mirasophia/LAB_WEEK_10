@@ -26,12 +26,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareViewModel() {
-        // Update UI based on viewModel.total initially
-        updateText(viewModel.total)
+        // Observe LiveData from ViewModel
+        viewModel.total.observe(this) { total ->
+            updateText(total)
+        }
 
         findViewById<Button>(R.id.button_increment).setOnClickListener {
-            val newTotal = viewModel.incrementTotal()
-            updateText(newTotal)
+            viewModel.incrementTotal()
         }
     }
 }
