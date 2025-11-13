@@ -46,4 +46,8 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    // ViewModel (required in Part 1)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+    // LiveData (we will add/enable it before step LiveData; safe to include now)
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
 }
