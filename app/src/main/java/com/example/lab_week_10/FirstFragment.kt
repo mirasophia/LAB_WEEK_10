@@ -7,40 +7,41 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import com.example.lab_week_10.utils.ToastUtil
 import com.example.lab_week_10.viewmodels.TotalViewModel
 
 class FirstFragment : Fragment() {
 
     private lateinit var viewModel: TotalViewModel
+    private var textTotal: TextView? = null
+    private var textUpdated: TextView? = null
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.fragment_first, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        prepareViewModel()
-    }
+        textTotal = view.findViewById(R.id.text_total_fragment)
+        textUpdated = view.findViewById(R.id.text_updated_fragment)
 
-    private fun updateText(total: Int) {
-        view?.findViewById<TextView>(R.id.text_total)?.text =
-            getString(R.string.text_total, total)
-    }
-
-    private fun prepareViewModel() {
         viewModel = ViewModelProvider(requireActivity())[TotalViewModel::class.java]
 
-        // Observe the LiveData object
         viewModel.total.observe(viewLifecycleOwner) { total ->
-            updateText(total)
+            textTotal?.text = getString(R.string.text_total, total)
+        }
+
+        viewModel.lastUpdated.observe(viewLifecycleOwner) { epoch ->
+            if (epoch <= 0L) {
+                textUpdated?.text = getString(R.string.text_updated_never)
+            } else {
+                textUpdated?.text = getString(R.string.text_updated_at, formatDate(epoch))
+            }
         }
     }
 
-    companion object {
-        @JvmStatic
-        fun newInstance() = FirstFragment()
+    private fun formatDate(epochMillis: Long): String {
+        val sdf = java.text.SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(epochMillis))
     }
 }

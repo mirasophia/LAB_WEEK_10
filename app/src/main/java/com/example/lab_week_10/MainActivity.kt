@@ -1,87 +1,113 @@
 package com.example.lab_week_10
 
 import android.os.Bundle
+import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.room.Room
 import com.example.lab_week_10.database.Total
 import com.example.lab_week_10.database.TotalDatabase
+import com.example.lab_week_10.utils.ToastUtil
 import com.example.lab_week_10.viewmodels.TotalViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    // lazy DB creation
+    private val TAG = "MainActivity"
     private val db: TotalDatabase by lazy { prepareDatabase() }
+    private val viewModel by lazy { ViewModelProvider(this)[TotalViewModel::class.java] }
 
-    private val viewModel by lazy {
-        ViewModelProvider(this)[TotalViewModel::class.java]
-    }
+    private var textTotal: TextView? = null
+    private var textUpdated: TextView? = null
+    private var buttonIncrement: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // initialize value from DB (must be called before preparing VM observer so UI show correct initial)
-        initializeValueFromDatabase()
+        textTotal = findViewById(R.id.text_total)
+        textUpdated = findViewById(R.id.text_updated)
+        buttonIncrement = findViewById(R.id.button_increment)
+
+        try {
+            initializeValueFromDatabase()
+        } catch (e: Exception) {
+            Log.e(TAG, "DB init error", e)
+            ToastUtil.showCustomToast(this, "DB init error", e.message ?: "")
+        }
 
         prepareViewModel()
     }
 
-    private fun updateText(total: Int) {
-        findViewById<TextView>(R.id.text_total).text =
-            getString(R.string.text_total, total)
-    }
-
     private fun prepareViewModel() {
-        // Observe LiveData from ViewModel
         viewModel.total.observe(this) { total ->
-            updateText(total)
+            textTotal?.text = getString(R.string.text_total, total)
         }
 
-        findViewById<Button>(R.id.button_increment).setOnClickListener {
-            viewModel.incrementTotal()
+        viewModel.lastUpdated.observe(this) { epoch ->
+            if (epoch <= 0L) {
+                textUpdated?.text = getString(R.string.text_updated_never)
+            } else {
+                textUpdated?.text = getString(R.string.text_updated_at, formatDate(epoch))
+            }
+        }
+
+        buttonIncrement?.setOnClickListener {
+            try {
+                viewModel.incrementTotal()
+                val current = viewModel.total.value ?: 0
+                val now = System.currentTimeMillis()
+                viewModel.setLastUpdated(now)
+                // persist immediately
+                db.totalDao().update(Total(ID, current, now))
+                // show custom toast (timestamp as main line)
+                ToastUtil.showCustomToast(this, formatDate(now), "")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error on increment", e)
+                ToastUtil.showCustomToast(this, "Error on increment", e.message ?: "")
+            }
         }
     }
 
-    // build Room DB (as in module, using allowMainThreadQueries for simplicity)
     private fun prepareDatabase(): TotalDatabase {
         return Room.databaseBuilder(
             applicationContext,
             TotalDatabase::class.java,
             "total-database"
-        ).allowMainThreadQueries().build()
+        )
+            .fallbackToDestructiveMigration()
+            .allowMainThreadQueries()
+            .build()
     }
 
-    // read existing value or insert initial one
     private fun initializeValueFromDatabase() {
         val totals = db.totalDao().getTotal(ID)
         if (totals.isEmpty()) {
-            // insert initial row with id = 1 and total = 0
-            db.totalDao().insert(Total(id = ID, total = 0))
+            db.totalDao().insert(Total(id = ID, total = 0, lastUpdated = 0L))
             viewModel.setTotal(0)
+            viewModel.setLastUpdated(0L)
         } else {
-            viewModel.setTotal(totals.first().total)
+            val t = totals.first()
+            viewModel.setTotal(t.total)
+            viewModel.setLastUpdated(t.lastUpdated)
         }
     }
 
-    // save to DB on pause
     override fun onPause() {
         super.onPause()
         val current = viewModel.total.value ?: 0
-        db.totalDao().update(Total(ID, current))
+        val last = viewModel.lastUpdated.value ?: 0L
+        db.totalDao().update(Total(ID, current, last))
     }
 
-    override fun onStart() {
-        super.onStart()
-        // optional: show toast for debugging
-        val current = viewModel.total.value ?: 0
-        Toast.makeText(this, "Current total: $current", Toast.LENGTH_SHORT).show()
+    private fun formatDate(epochMillis: Long): String {
+        val sdf = SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.getDefault())
+        return sdf.format(Date(epochMillis))
     }
 
-    companion object {
-        const val ID: Long = 1L
-    }
+    companion object { const val ID: Long = 1L }
 }
