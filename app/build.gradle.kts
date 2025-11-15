@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("org.jetbrains.kotlin.kapt") // added for Room annotation processing
 }
 
 android {
@@ -37,6 +38,8 @@ android {
     }
 }
 
+val roomVersion = "2.6.0"
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -46,8 +49,14 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    // ViewModel (required in Part 1)
+
+    // ViewModel & LiveData (from Part 1)
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    // LiveData (we will add/enable it before step LiveData; safe to include now)
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
+
+    // Room (Part 2)
+    implementation("androidx.room:room-runtime:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
+    // optional - Kotlin Extensions and Coroutines support for Room (not used here but safe to have)
+    implementation("androidx.room:room-ktx:$roomVersion")
 }
